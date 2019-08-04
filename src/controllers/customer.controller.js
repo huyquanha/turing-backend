@@ -162,13 +162,12 @@ class CustomerController {
    * @memberof CustomerController
    */
   static async getCustomerProfile(req, res, next) {
-    // fix the bugs in this code
-    const { customer_id } = req;  // eslint-disable-line
+    // eslint-disable-next-line camelcase
+    const { customer_id } = req;
     try {
       const customer = await Customer.findByPk(customer_id);
-      return res.status(400).json({
-        status: true,
-        customer,
+      return res.status(200).json({
+        customer: customer.getSafeDataValues(),
       });
     } catch (error) {
       return next(error);
@@ -187,6 +186,12 @@ class CustomerController {
    */
   static async updateCustomerProfile(req, res, next) {
     // Implement function to update customer profile like name, day_phone, eve_phone and mob_phone
+    const { customer_id } = req;
+    try {
+      const customer = await Customer.findByPk(customer_id);
+    } catch(err) {
+      
+    }
     return res.status(200).json({ message: 'this works' });
   }
 
