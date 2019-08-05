@@ -10,8 +10,10 @@
  *  NB: Check the BACKEND CHALLENGE TEMPLATE DOCUMENTATION in the readme of this repository to see our recommended
  *  endpoints, request body/param, and response object for each of these method
  */
-import { Customer } from '../database/models';
+import { Customer, Sequelize } from '../database/models';
 import jwt from '../utils/jwt';
+
+const Op = Sequelize.Op;
 
 /**
  *
@@ -32,7 +34,7 @@ class CustomerController {
   // eslint-disable-next-line consistent-return
   static async create(req, res, next) {
     // Implement the function to create the customer account
-    const { email, password } = req.body;
+    const { name, email, password } = req.body;
     if (!email) {
       next({
         status: 400,
@@ -46,6 +48,13 @@ class CustomerController {
         code: 'USR_02',
         message: 'The field is required',
         field: 'password',
+      });
+    } else if (!name) {
+      next({
+        status: 400,
+        code: 'USR_02',
+        message: 'The field is required',
+        field: 'name',
       });
     } else {
       try {
@@ -141,7 +150,7 @@ class CustomerController {
           next({
             status: 400,
             code: 'USR_05',
-            message: "The email doesn't exist",
+            message: 'The email doesn\'t exist',
             field: 'password',
           });
         }
@@ -184,15 +193,45 @@ class CustomerController {
    * @returns {json} json object with status customer profile data
    * @memberof CustomerController
    */
+  // eslint-disable-next-line consistent-return
   static async updateCustomerProfile(req, res, next) {
     // Implement function to update customer profile like name, day_phone, eve_phone and mob_phone
+    // eslint-disable-next-line camelcase
     const { customer_id } = req;
+    const { email } = req.body;
     try {
       const customer = await Customer.findByPk(customer_id);
-    } catch(err) {
-      
+      if (email === customer.email) {
+        return customer
+          .update({ ...req.body })
+          .then(updatedCustomer => {
+            return res.status(200).json(updatedCustomer.getSafeDataValues());
+          })
+          .catch(error => {
+            next(error);
+          });
+      }
+      const customerWithSameEmail = await Customer.findOne({ where: { email } });
+      if (customerWithSameEmail) {
+        next({
+          status: 400,
+          code: 'USR_04',
+          message: 'The email already exists',
+          field: 'email',
+        });
+      } else {
+        return customer
+          .update({ ...req.body })
+          .then(updatedCustomer => {
+            return res.status(200).json(updatedCustomer.getSafeDataValues());
+          })
+          .catch(error => {
+            next(error);
+          });
+      }
+    } catch (err) {
+      next(err);
     }
-    return res.status(200).json({ message: 'this works' });
   }
 
   /**
@@ -205,10 +244,25 @@ class CustomerController {
    * @returns {json} json object with status customer profile data
    * @memberof CustomerController
    */
+  // eslint-disable-next-line consistent-return
   static async updateCustomerAddress(req, res, next) {
     // write code to update customer address info such as address_1, address_2, city, region, postal_code, country
     // and shipping_region_id
-    return res.status(200).json({ message: 'this works' });
+    // eslint-disable-next-line camelcase
+    const { customer_id } = req;
+    try {
+      const customer = await Customer.findByPk(customer_id);
+      return customer
+        .update({ ...req.body })
+        .then(updatedCustomer => {
+          return res.status(200).json(updatedCustomer.getSafeDataValues());
+        })
+        .catch(error => {
+          next(error);
+        });
+    } catch (err) {
+      next(err);
+    }
   }
 
   /**
@@ -223,6 +277,25 @@ class CustomerController {
    */
   static async updateCreditCard(req, res, next) {
     // write code to update customer credit card number
+    // eslint-disable-next-line camelcase
+    const { customer_id } = req;
+    try {
+      const customer = await Customer.findByPk(customer_id);
+      return customer
+        .update({ credit_card: req.body.credit_card })
+        .then(updatedCustomer => {
+          const hiddenCreditCard = updatedCustomer.credit_card.replace('/.(?= .{4,}$/g', 'x');
+          return res.status(200).json({
+            ...updatedCustomer.getSafeDataValues(),
+            credit_card: `${updatedCustomer.credit_card}, (${hiddenCreditCard})`,
+          });
+        })
+        .catch(error => {
+          next(error);
+        });
+    } catch (err) {
+      next(err);
+    }
     return res.status(200).json({ message: 'this works' });
   }
 }

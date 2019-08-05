@@ -11,6 +11,5 @@ router.get('/customer', auth, CustomerController.getCustomerProfile);
 router.put('/customer', auth, CustomerController.updateCustomerProfile);
 router.put('/customer/creditCard', auth, CustomerController.updateCreditCard);
 router.put('/customer/address', auth, CustomerController.updateCustomerAddress);
-router.put('/customer/creditCard', CustomerController.updateCreditCard);
 
 export default router;
