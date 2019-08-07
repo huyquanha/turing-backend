@@ -35,7 +35,7 @@ module.exports = (sequelize, DataTypes) => {
       tableName: 'orders',
     }
   );
-  Order.associate = ({ Customer, Shipping, OrderDetail }) => {
+  Order.associate = ({ Customer, Shipping, OrderDetail, Tax }) => {
     Order.belongsTo(Customer, {
       foreignKey: 'customer_id',
     });
@@ -45,6 +45,9 @@ module.exports = (sequelize, DataTypes) => {
     Order.hasMany(OrderDetail, {
       as: 'orderItems',
       foreignKey: 'order_id',
+    });
+    Order.belongsTo(Tax, {
+      foreignKey: 'tax_id',
     });
   };
   return Order;

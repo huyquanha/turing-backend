@@ -17,8 +17,15 @@
  *  NB: Check the BACKEND CHALLENGE TEMPLATE DOCUMENTATION in the readme of this repository to see our recommended
  *  endpoints, request body/param, and response object for each of these method
  */
+import {
+  Product,
+  ShoppingCart,
+  // AttributeValue,
+  // Attribute,
+  Sequelize,
+} from '../database/models';
 
- 
+const uuid = require('uuid/v4');
 /**
  *
  *
@@ -36,7 +43,8 @@ class ShoppingCartController {
    */
   static generateUniqueCart(req, res) {
     // implement method to generate unique cart Id
-    return res.status(200).json({ message: 'this works' });
+    const card_id = uuid(); //eslint-disable-line
+    return res.status(200).json({ card_id: card_id.replace(/-/g, '') });
   }
 
   /**
@@ -50,7 +58,28 @@ class ShoppingCartController {
    */
   static async addItemToCart(req, res, next) {
     // implement function to add item to cart
-    return res.status(200).json({ message: 'this works' });
+    const { product_id } = req.body; //eslint-disable-line
+    try {
+      const product = await Product.findOne({ where: { product_id } });
+      if (product) {
+        return ShoppingCart.create({ ...req.body })
+          .then(savedProduct => {
+            const { buy_now, added_on, ...returnedData } = savedProduct.dataValues; //eslint-disable-line
+            return res.status(201).json(returnedData);
+          })
+          .catch(error => {
+            return next(error);
+          });
+      }
+      return res.status(404).json({
+        error: {
+          status: 404,
+          message: `Product with id ${product_id} does not exist`, //eslint-disable-line
+        },
+      });
+    } catch (err) {
+      return next(err);
+    }
   }
 
   /**
@@ -64,7 +93,34 @@ class ShoppingCartController {
    */
   static async getCart(req, res, next) {
     // implement method to get cart items
-    return res.status(200).json({ message: 'this works' });
+    const { cart_id } = req.params; //eslint-disable-line
+    try {
+      const items = await ShoppingCart.findAll({
+        include: [
+          {
+            model: Product,
+            attributes: ['name', 'image', 'price', 'discounted_price'],
+          },
+        ],
+        where: {
+          cart_id,
+        },
+        attributes: {
+          exclude: ['buy_now', 'added_on'],
+        },
+      });
+      items.forEach(
+        // eslint-disable-next-line no-return-assign
+        item =>
+          // eslint-disable-next-line no-param-reassign
+          (item.subtotal = item.discounted_price
+            ? item.discounted_price * item.quantity
+            : item.price * item.quantity)
+      );
+      return res.status(200).json(items);
+    } catch (err) {
+      return next(err);
+    }
   }
 
   /**
@@ -126,6 +182,8 @@ class ShoppingCartController {
   static async createOrder(req, res, next) {
     try {
       // implement code for creating order here
+      const { customer_id } = req; //eslint-disable-line
+      const { cart_id, shipping_id, tax_id } = req.body; //eslint-disable-line
     } catch (error) {
       return next(error);
     }

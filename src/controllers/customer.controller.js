@@ -36,61 +36,52 @@ class CustomerController {
     // Implement the function to create the customer account
     const { name, email, password } = req.body;
     if (!email) {
-      next({
+      return next({
         status: 400,
         code: 'USR_02',
         message: 'The field is required',
         field: 'email',
       });
-    } else if (!password) {
-      next({
+    }
+    if (!password) {
+      return next({
         status: 400,
         code: 'USR_02',
         message: 'The field is required',
         field: 'password',
       });
-    } else if (!name) {
-      next({
-        status: 400,
-        code: 'USR_02',
-        message: 'The field is required',
-        field: 'name',
-      });
-    } else {
-      try {
-        let customer = await Customer.findOne({ where: { email } });
-        if (customer) {
-          next({
-            status: 400,
-            code: 'USR_04',
-            message: 'The email already exists',
-            field: 'email',
-          });
-        } else {
-          customer = Customer.build({ ...req.body });
-          const duration = '24h';
-          // eslint-disable-next-line consistent-return
-          jwt.sign({ customer_id: customer.customer_id }, duration, (err, token) => {
-            if (!err) {
-              return customer
-                .save()
-                .then(() => {
-                  return res.status(201).json({
-                    customer: customer.getSafeDataValues(),
-                    accessToken: token,
-                    expiresIn: duration,
-                  });
-                })
-                .catch(error => {
-                  next(error);
-                });
-            }
-            next(err);
-          });
-        }
-      } catch (err) {
-        next(err);
+    }
+    try {
+      let customer = await Customer.findOne({ where: { email } });
+      if (customer) {
+        return next({
+          status: 400,
+          code: 'USR_04',
+          message: 'The email already exists',
+          field: 'email',
+        });
       }
+      customer = Customer.build({ ...req.body });
+      const duration = '24h';
+      return jwt.sign({ customer_id: customer.customer_id }, duration, (err, token) => {
+        if (!err) {
+          return customer
+            .save()
+            .then(() => {
+              return res.status(201).json({
+                customer: customer.getSafeDataValues(),
+                accessToken: token,
+                expiresIn: duration,
+              });
+            })
+            .catch(error => {
+              return next(error);
+            });
+        }
+        return next(err);
+      });
+    } catch (err) {
+      return next(err);
     }
   }
 
@@ -108,55 +99,52 @@ class CustomerController {
     // implement function to login to user account
     const { email, password } = req.body;
     if (!email) {
-      next({
+      return next({
         status: 400,
         code: 'USR_02',
         message: 'The field is required',
         field: 'email',
       });
-    } else if (!password) {
-      next({
+    }
+    if (!password) {
+      return next({
         status: 400,
         code: 'USR_02',
         message: 'The field is required',
         field: 'password',
       });
-    } else {
-      try {
-        const customer = await Customer.findOne({ where: { email } });
-        if (customer) {
-          const match = await customer.validatePassword(password);
-          if (match) {
-            const duration = '24h';
-            // eslint-disable-next-line consistent-return
-            jwt.sign({ customer_id: customer.customer_id }, duration, (err, token) => {
-              if (!err) {
-                return res.status(200).json({
-                  customer: customer.getSafeDataValues(),
-                  accessToken: token,
-                  expiresIn: duration,
-                });
-              }
-              next(err);
-            });
-          } else {
-            next({
-              status: 400,
-              code: 'USR_01',
-              message: 'Email or Password is invalid',
-            });
-          }
-        } else {
-          next({
-            status: 400,
-            code: 'USR_05',
-            message: 'The email doesn\'t exist',
-            field: 'password',
+    }
+    try {
+      const customer = await Customer.findOne({ where: { email } });
+      if (customer) {
+        const match = await customer.validatePassword(password);
+        if (match) {
+          const duration = '24h';
+          return jwt.sign({ customer_id: customer.customer_id }, duration, (err, token) => {
+            if (!err) {
+              return res.status(200).json({
+                customer: customer.getSafeDataValues(),
+                accessToken: token,
+                expiresIn: duration,
+              });
+            }
+            return next(err);
           });
         }
-      } catch (err) {
-        next(err);
+        return next({
+          status: 400,
+          code: 'USR_01',
+          message: 'Email or Password is invalid',
+        });
       }
+      return next({
+        status: 400,
+        code: 'USR_05',
+        message: "The email doesn't exist",
+        field: 'password',
+      });
+    } catch (err) {
+      return next(err);
     }
   }
 
@@ -208,12 +196,12 @@ class CustomerController {
             return res.status(200).json(updatedCustomer.getSafeDataValues());
           })
           .catch(error => {
-            next(error);
+            return next(error);
           });
       }
       const customerWithSameEmail = await Customer.findOne({ where: { email } });
       if (customerWithSameEmail) {
-        next({
+        return next({
           status: 400,
           code: 'USR_04',
           message: 'The email already exists',
@@ -226,11 +214,11 @@ class CustomerController {
             return res.status(200).json(updatedCustomer.getSafeDataValues());
           })
           .catch(error => {
-            next(error);
+            return next(error);
           });
       }
     } catch (err) {
-      next(err);
+      return next(err);
     }
   }
 
@@ -258,10 +246,10 @@ class CustomerController {
           return res.status(200).json(updatedCustomer.getSafeDataValues());
         })
         .catch(error => {
-          next(error);
+          return next(error);
         });
     } catch (err) {
-      next(err);
+      return next(err);
     }
   }
 
@@ -284,19 +272,18 @@ class CustomerController {
       return customer
         .update({ credit_card: req.body.credit_card })
         .then(updatedCustomer => {
-          const hiddenCreditCard = updatedCustomer.credit_card.replace('/.(?= .{4,}$/g', 'x');
+          const hiddenCreditCard = updatedCustomer.credit_card.replace(/.(?=.{4,}$)/g, 'x');
           return res.status(200).json({
             ...updatedCustomer.getSafeDataValues(),
             credit_card: `${updatedCustomer.credit_card}, (${hiddenCreditCard})`,
           });
         })
         .catch(error => {
-          next(error);
+          return next(error);
         });
     } catch (err) {
-      next(err);
+      return next(err);
     }
-    return res.status(200).json({ message: 'this works' });
   }
 }
 
