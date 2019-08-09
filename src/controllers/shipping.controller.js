@@ -1,10 +1,8 @@
 /**
  * The Shipping Controller contains all the static methods that handles all shipping request
  * This piece of code work fine, but you can test and debug any detected issue
- * 
  * - getShippingRegions - Returns a list of all shipping region
  * - getShippingType - Returns a list of shipping type in a specific shipping region
- * 
  */
 import { ShippingRegion, Shipping } from '../database/models';
 
@@ -23,7 +21,6 @@ class ShippingController {
     try {
       const shippingRegions = await ShippingRegion.findAll();
       return res.status(200).json({
-        status: true,
         shippingRegions,
       });
     } catch (error) {
@@ -51,7 +48,6 @@ class ShippingController {
       });
 
       return res.status(200).json({
-        status: true,
         shippingTypes,
       });
     } catch (error) {

@@ -1,0 +1,46 @@
+<div>
+    <p>Hi {{name}}</p>
+    <p> Thank you for shopping with Turing. We have received your payment and your order is being processed</p>
+    <p>Please review your order details below</p>
+    <hr/>
+    <table>
+        <tr>
+            <th>Product Name</th>
+            <th>Unit Cost</th>
+            <th>Quantity</th>
+            <th>SubTotal</th>
+        </tr>
+        <tr>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+        </tr>
+        {{#each order.orderItems}}
+            <tr>
+                <td>{{this.dataValues.product_name}}</td>
+                <td>{{this.dataValues.unit_cost}}</td>
+                <td>{{this.dataValues.quantity}}</td>
+                <td>{{this.subtotal}}</td>
+            </tr>
+            <tr>
+                <td>&nbsp;</td>
+                <td>&nbsp;</td>
+                <td>&nbsp;</td>
+                <td>&nbsp;</td>
+            </tr>
+        {{/each}}
+        <tr>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+        </tr>
+        <tr>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+            <td><b>Total</b></td>
+            <td><b>{{order.total_amount}}</b></td>
+        </tr>
+    </table>
+</div>

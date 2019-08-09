@@ -23,17 +23,12 @@ import {
   // Attribute,
   Category,
   Sequelize,
+  sequelize,
 } from '../database/models';
 
 const { Op } = Sequelize;
 
-/**
- * @param page
- * @param limit
- * @param description_length
- * @returns {{offset: *, limit: *, page: *, description_length: *}}
- */
-const paginate = ({ page, limit, ...query }) => {
+const convert = ({ page, limit, description_length, ...query }) => { //eslint-disable-line
   if (!page) {
     page = 1; // eslint-disable-line
   } else if (typeof page !== 'number') {
@@ -44,11 +39,25 @@ const paginate = ({ page, limit, ...query }) => {
   } else if (typeof limit !== 'number') {
     limit = parseInt(limit); // eslint-disable-line
   }
+  if (!description_length) { // eslint-disable-line
+    // eslint-disable-next-line
+    description_length = 200;
+  } else if (typeof description_length !== 'number') { // eslint-disable-line
+    description_length = parseInt(description_length); // eslint-disable-line
+  }
+  return { page, limit, description_length, ...query }; //eslint-disable-line
+};
+
+/**
+ * @param page
+ * @param limit
+ * @param description_length
+ * @returns {{offset: *, limit: *, page: *, description_length: *}}
+ */
+const paginate = (page, limit) => {
   const offset = (page - 1) * limit;
   return {
-    page,
     limit,
-    ...query,
     offset,
   };
 };
@@ -56,16 +65,14 @@ const paginate = ({ page, limit, ...query }) => {
 /**
  * @param description
  * @param description_length
- * @returns a shorten description with maximum length = description_length
+ * @returns string: shorten description with maximum length = description_length
  */
 const shortenDesc = (description, description_length) => { // eslint-disable-line
-  if (!description_length) { // eslint-disable-line
-    // eslint-disable-next-line
-    description_length = 200;
-  } else if (typeof description_length !== 'number') { // eslint-disable-line
-    description_length = parseInt(description_length); // eslint-disable-line
+  if (description.length() <= description_length) { //eslint-disable-line
+    return description;
+  } else {
+    return description.substring(0, description_length).concat('...');
   }
-  return description.substring(0, description_length);
 };
 
 /**
@@ -85,20 +92,19 @@ class ProductController {
    * @memberof ProductController
    */
   static async getAllProducts(req, res, next) {
-    const { query } = req;
-    const { page, limit, description_length, offset } = paginate(query); // eslint-disable-line
     try {
+      const { page, limit, description_length } = convert(req.query); //eslint-disable-line
+      const pagination = paginate(page, limit);
       const totalRecords = await Product.count();
       const totalPages =
         totalRecords % limit === 0 ? totalRecords / limit : Math.floor(totalRecords / limit) + 1;
-      const products = await Product.findAndCountAll({
-        offset,
-        limit,
+      const products = await Product.findAll({
+        ...pagination,
         attributes: {
           exclude: ['image', 'image_2', 'display'],
         },
       });
-      products.rows.forEach(p => (p.description = shortenDesc(p.description, description_length))); //eslint-disable-line
+      products.forEach(p => (p.description = shortenDesc(p.description, description_length))); //eslint-disable-line
       return res.status(200).json({
         paginationMeta: {
           currentPage: page,
@@ -106,7 +112,7 @@ class ProductController {
           totalPages,
           totalRecords,
         },
-        rows: products.rows,
+        rows: products,
       });
     } catch (error) {
       return next(error);
@@ -124,54 +130,23 @@ class ProductController {
    * @memberof ProductController
    */
   static async searchProduct(req, res, next) {
-    const { limit, description_length, query_string, all_words, offset } = paginate(req.query);  // eslint-disable-line
     try {
+      const { page, limit, description_length, query_string, all_words } = convert(req.query);  // eslint-disable-line
+      const pagination = paginate(page, limit);
       // all_words should either be on or off
-      // eslint-disable-next-line camelcase
-      if (all_words === 'on') {
-        const products = await Product.findAll({
-          offset,
-          limit,
-          attributes: {
-            exclude: ['image', 'image_2', 'display'],
+      const products = await sequelize.query(
+        'CALL catalog_search (:query_string, :all_words, ' +
+          ':description_length, :limit, :offset)',
+        {
+          replacements: {
+            query_string,
+            all_words,
+            description_length,
+            ...pagination,
           },
-          where: {
-            [Op.or]: [{ name: query_string }, { description: query_string }],
-          },
-        });
-        products.forEach(p => (p.description = shortenDesc(p.description, description_length))); //eslint-disable-line
-        return res.status(200).json({ rows: products.rows });
-      } else if (all_words === 'off') { // eslint-disable-line
-        const products = await Product.findAll({
-          offset,
-          limit,
-          attributes: {
-            exclude: ['image', 'image_2', 'display'],
-          },
-          where: {
-            [Op.or]: [
-              {
-                name: {
-                  [Op.like]: `%${ query_string  }%` // eslint-disable-line
-                },
-              },
-              {
-                description: {
-                  [Op.like]: `%${ query_string  }%` // eslint-disable-line
-                },
-              },
-            ],
-          },
-        });
-        products.forEach(p => (p.description = shortenDesc(p.description, description_length))); //eslint-disable-line
-        return res.status(200).json({ rows: products.rows });
-      }
-      return res.status(400).json({
-        error: {
-          status: 400,
-          message: `Query value ${all_words} not supported`, // eslint-disable-line
-        },
-      });
+        }
+      );
+      return res.status(200).json({ rows: products });
     } catch (err) {
       return next(err);
     }
@@ -190,8 +165,20 @@ class ProductController {
   static async getProductsByCategory(req, res, next) {
     try {
       const { category_id } = req.params; // eslint-disable-line
-      const { limit, description_length, offset } = paginate(req.query); //eslint-disable-line
-      const products = await Product.findAll({
+      const { page, limit, description_length } = convert(req.query); //eslint-disable-line
+      const pagination = paginate(page, limit);
+      const products = await sequelize.query(
+        'CALL catalog_get_products_in_category (:category_id, :description_length, ' +
+          ':limit, :offset)',
+        {
+          replacements: {
+            category_id,
+            description_length,
+            ...pagination,
+          },
+        }
+      );
+      /* const products = await Product.findAll({
         include: [
           {
             model: Category,
@@ -204,10 +191,9 @@ class ProductController {
         attributes: {
           exclude: ['image', 'image_2', 'display'],
         },
-        limit,
-        offset,
+        ...pagination,
       });
-      products.forEach(p => (p.description = shortenDesc(p.description, description_length))); //eslint-disable-line
+      products.forEach(p => (p.description = shortenDesc(p.description, description_length))); //eslint-disable-line */
       return res.status(200).json({ rows: products });
     } catch (error) {
       return next(error);
@@ -225,10 +211,10 @@ class ProductController {
    * @memberof ProductController
    */
   static async getProductsByDepartment(req, res, next) {
-    // implement the method to get products by department
-    const { department_id } = req.params; // eslint-disable-line
-    const { limit, description_length, offset } = paginate(req.query); // eslint-disable-line
     try {
+      const { department_id } = req.params; // eslint-disable-line
+      const { page, limit, description_length } = convert(req.query); // eslint-disable-line
+      const pagination = paginate(page, limit);
       const products = await Product.findAll({
         include: [
           {
@@ -248,8 +234,7 @@ class ProductController {
         attributes: {
           exclude: ['image', 'image_2', 'display'],
         },
-        offset,
-        limit,
+        ...pagination,
       });
       products.forEach(p => (p.description = shortenDesc(p.description, description_length))); //eslint-disable-line
       return res.status(200).json({ rows: products });
@@ -270,7 +255,7 @@ class ProductController {
    */
   static async getProduct(req, res, next) {
     const { product_id } = req.params;  // eslint-disable-line
-    const { description_length } = req.query; // eslint-disable-line
+    const { description_length } = convert(req.query); // eslint-disable-line
     try {
       const product = await Product.findByPk(product_id);
       if (product) {
@@ -356,8 +341,8 @@ class ProductController {
    * @param {*} next
    */
   static async getSingleCategory(req, res, next) {
-    const { category_id } = req.params;  // eslint-disable-line
     try {
+      const { category_id } = req.params;  // eslint-disable-line
       const category = await Category.findByPk(category_id);
       if (category) {
         return res.status(200).json(category);
@@ -380,9 +365,9 @@ class ProductController {
    * @param {*} next
    */
   static async getProductCategories(req, res, next) {
-    // Note: one product may have more than 1 category
-    const { product_id } = req.params;  // eslint-disable-line
     try {
+      // Note: one product may have more than 1 category
+      const { product_id } = req.params;  // eslint-disable-line
       const categories = await Category.findAll({
         include: [
           {
@@ -410,8 +395,8 @@ class ProductController {
    * @param {*} next
    */
   static async getDepartmentCategories(req, res, next) {
-    const { department_id } = req.params;  // eslint-disable-line
     try {
+      const { department_id } = req.params;  // eslint-disable-line
       const department = await Department.findByPk(department_id, {
         include: [Category],
       });
