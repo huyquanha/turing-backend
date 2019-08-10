@@ -68,7 +68,7 @@ const paginate = (page, limit) => {
  * @returns string: shorten description with maximum length = description_length
  */
 const shortenDesc = (description, description_length) => { // eslint-disable-line
-  if (description.length() <= description_length) { //eslint-disable-line
+  if (description.length <= description_length) { //eslint-disable-line
     return description;
   } else {
     return description.substring(0, description_length).concat('...');
