@@ -285,14 +285,14 @@ class ShoppingCartController {
           },
         });
       }
-      const orderId = await sequelize.query(
+      const order = await sequelize.query(
         'CALL shopping_cart_create_order (:cart_id, :customer_id, :shipping_id, :tax_id)',
         {
           replacements: { cart_id, customer_id, shipping_id, tax_id },
         }
       );
-      if (orderId) {
-        return res.status(201).json({ order_id: orderId });
+      if (order && order.length === 1) {
+        return res.status(201).json({ order_id: order[0].orderId });
       }
       return res.status(500).json({
         error: {
@@ -406,6 +406,21 @@ class ShoppingCartController {
       return smtpTransport
         .sendMail(mailOptions)
         .then(() => {
+          charge.billing_details = {
+            address: {
+              city: customer.city,
+              country: customer.country,
+              line1: customer.address_1,
+              line2: customer.address_2,
+              postal_code: customer.postal_code,
+              state: customer.region,
+            },
+            email: customer.email,
+            name: customer.name,
+            phone: customer.day_phone,
+          };
+          // eslint-disable-next-line camelcase
+          charge.order = order_id;
           return res.status(200).json(charge);
         })
         .catch(err => {
